@@ -1,6 +1,9 @@
 # Assignment 1: Classical Planning
 ## Author: Aesha Gandhi ##
 
+## Video Submission ##
+https://youtu.be/zdaWvmZFyq8
+
 ## Part 1: Domain Selection & Description
 
 ### Domain: Library Book Retrieval Robot
