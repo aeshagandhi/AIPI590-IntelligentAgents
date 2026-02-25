@@ -4,6 +4,7 @@ Implementation of the Transformer architecture.
 Based on "Attention Is All You Need" - Vaswani et al., 2017
 https://arxiv.org/abs/1706.03762
 
+[Youtube Video Submission](https://youtu.be/vkNP80uRjOI)
 ## Files
 - `transformer.py` — full implementation and example
 
