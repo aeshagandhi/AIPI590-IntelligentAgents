@@ -2,7 +2,7 @@
 
 ## Course Context
 
-This project was built for **AIPI 590: Intelligent Agents** as a class assignment on designing and evaluating a custom LLM-based agent. The system takes a natural-language task list plus user availability and converts them into a structured, time-blocked schedule.
+This assignment focuses on designing and evaluating a custom LLM-based agent. The system takes a natural-language task list plus user availability and converts them into a structured, time-blocked schedule.
 
 ## Project Summary
 
@@ -309,7 +309,7 @@ This project demonstrates that a relatively small custom agent can coordinate mu
 
 ## Submission Notes
 
-For class submission purposes, this repository includes:
+This repository includes:
 
 - a custom LLM agent loop
 - at least three tools
