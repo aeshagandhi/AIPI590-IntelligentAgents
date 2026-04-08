@@ -1,6 +1,7 @@
 # LLM Task Scheduler Agent
 
-## Course Context
+Video: https://youtu.be/ZPixhFpnKWQ
+## Context
 
 This assignment focuses on designing and evaluating a custom LLM-based agent. The system takes a natural-language task list plus user availability and converts them into a structured, time-blocked schedule.
 
