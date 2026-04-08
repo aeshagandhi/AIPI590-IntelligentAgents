@@ -14,6 +14,14 @@ from tools import TOOLS, run_tool
 MAX_STEPS = 8
 
 
+def _resolve_reference_datetime(reference_datetime: Optional[str | datetime]) -> datetime:
+    if reference_datetime is None:
+        return datetime.now()
+    if isinstance(reference_datetime, datetime):
+        return reference_datetime
+    return datetime.fromisoformat(reference_datetime)
+
+
 def get_tool_descriptions() -> str:
     lines = []
     for tool_name, tool_meta in TOOLS.items():
@@ -99,10 +107,13 @@ def run_agent(
     model: str = "gpt-4o-mini",
     max_steps: int = MAX_STEPS,
     verbose: bool = True,
+    reference_datetime: Optional[str | datetime] = None,
 ) -> Dict[str, Any]:
     """
     Run the custom agent loop.
     """
+    reference_dt = _resolve_reference_datetime(reference_datetime)
+
     messages: List[Dict[str, str]] = [
         {"role": "system", "content": build_system_prompt()},
         {
@@ -110,6 +121,7 @@ def run_agent(
             "content": build_user_prompt(
                 raw_tasks_text=raw_tasks_text,
                 raw_availability_text=raw_availability_text,
+                reference_datetime=reference_dt.isoformat(),
             ),
         },
     ]
@@ -154,6 +166,9 @@ def run_agent(
 
         tool_name = parsed["tool"]
         tool_args = parsed["args"]
+
+        if tool_name in {"parse_tasks", "parse_availability"} and "reference" not in tool_args:
+            tool_args = {**tool_args, "reference": reference_dt}
 
         try:
             tool_result = run_tool(tool_name, **tool_args)
@@ -201,6 +216,111 @@ def run_agent(
         "validation_result": latest_validation_result,
         "trace": trace,
         "messages": messages,
+    }
+
+
+def run_agent_direct(
+    raw_tasks_text: str,
+    raw_availability_text: str,
+    reference_datetime: Optional[str | datetime] = None,
+) -> Dict[str, Any]:
+    """
+    Run the same tool pipeline without an LLM. This is useful for deterministic
+    local evaluation and offline debugging.
+    """
+    reference_dt = _resolve_reference_datetime(reference_datetime)
+    trace: List[Dict[str, Any]] = []
+
+    parsed_tasks = run_tool("parse_tasks", raw_tasks_text=raw_tasks_text, reference=reference_dt)
+    trace.append(
+        {
+            "step": 1,
+            "tool_name": "parse_tasks",
+            "tool_args": {"raw_tasks_text": raw_tasks_text, "reference": reference_dt},
+            "tool_result": parsed_tasks,
+        }
+    )
+    if parsed_tasks.get("errors"):
+        return {
+            "success": False,
+            "error": "Task parsing failed.",
+            "schedule_result": None,
+            "validation_result": None,
+            "trace": trace,
+        }
+
+    parsed_availability = run_tool(
+        "parse_availability",
+        raw_availability_text=raw_availability_text,
+        reference=reference_dt,
+    )
+    trace.append(
+        {
+            "step": 2,
+            "tool_name": "parse_availability",
+            "tool_args": {
+                "raw_availability_text": raw_availability_text,
+                "reference": reference_dt,
+            },
+            "tool_result": parsed_availability,
+        }
+    )
+    if parsed_availability.get("errors"):
+        return {
+            "success": False,
+            "error": "Availability parsing failed.",
+            "schedule_result": None,
+            "validation_result": None,
+            "trace": trace,
+        }
+
+    schedule_result = run_tool(
+        "build_schedule",
+        task_dicts=parsed_tasks["tasks"],
+        slot_dicts=parsed_availability["slots"],
+    )
+    trace.append(
+        {
+            "step": 3,
+            "tool_name": "build_schedule",
+            "tool_args": {
+                "task_dicts": parsed_tasks["tasks"],
+                "slot_dicts": parsed_availability["slots"],
+            },
+            "tool_result": schedule_result,
+        }
+    )
+
+    validation_result = run_tool(
+        "validate_schedule",
+        task_dicts=parsed_tasks["tasks"],
+        scheduled_blocks=schedule_result["scheduled_blocks"],
+    )
+    trace.append(
+        {
+            "step": 4,
+            "tool_name": "validate_schedule",
+            "tool_args": {
+                "task_dicts": parsed_tasks["tasks"],
+                "scheduled_blocks": schedule_result["scheduled_blocks"],
+            },
+            "tool_result": validation_result,
+        }
+    )
+
+    unscheduled = schedule_result.get("unscheduled_tasks", [])
+    if unscheduled:
+        final_message = f"Built a valid schedule with {len(unscheduled)} partially or fully unscheduled task(s)."
+    else:
+        final_message = "Built a valid schedule for all tasks."
+
+    return {
+        "success": True,
+        "final_message": final_message,
+        "schedule_result": schedule_result,
+        "validation_result": validation_result,
+        "trace": trace,
+        "messages": [],
     }
 
 

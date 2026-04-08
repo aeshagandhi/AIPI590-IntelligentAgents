@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from agent import run_agent
+from openai import APIConnectionError
+
+from agent import run_agent, run_agent_direct
 
 
 TEST_CASES: List[Dict[str, Any]] = [
@@ -54,6 +56,8 @@ Friday: 5pm-9pm
         },
     },
 ]
+
+REFERENCE_DATETIME = "2026-04-08T09:00:00"
 
 
 def score_case(agent_result: Dict[str, Any], expected: Dict[str, Any]) -> Dict[str, Any]:
@@ -108,19 +112,31 @@ def score_case(agent_result: Dict[str, Any], expected: Dict[str, Any]) -> Dict[s
 def run_evaluation(
     model: str = "gpt-4o-mini",
     max_steps: int = 8,
+    use_direct_fallback: bool = True,
 ) -> List[Dict[str, Any]]:
     results: List[Dict[str, Any]] = []
 
     for case in TEST_CASES:
         print(f"\nRunning case: {case['name']}")
 
-        agent_result = run_agent(
-            raw_tasks_text=case["tasks"],
-            raw_availability_text=case["availability"],
-            model=model,
-            max_steps=max_steps,
-            verbose=False,
-        )
+        try:
+            agent_result = run_agent(
+                raw_tasks_text=case["tasks"],
+                raw_availability_text=case["availability"],
+                model=model,
+                max_steps=max_steps,
+                verbose=False,
+                reference_datetime=REFERENCE_DATETIME,
+            )
+        except APIConnectionError:
+            if not use_direct_fallback:
+                raise
+            print("OpenAI API unavailable, falling back to direct tool evaluation.")
+            agent_result = run_agent_direct(
+                raw_tasks_text=case["tasks"],
+                raw_availability_text=case["availability"],
+                reference_datetime=REFERENCE_DATETIME,
+            )
 
         metrics = score_case(agent_result, case["expected"])
 

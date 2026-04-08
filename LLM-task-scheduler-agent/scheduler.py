@@ -130,6 +130,10 @@ def build_schedule(tasks: List[Task], slots: List[TimeSlot]) -> SchedulingResult
         updated_slots: List[TimeSlot] = []
         
         for slot in remaining_slots:
+            if minutes_left <= 0:
+                updated_slots.append(slot)
+                continue
+
             # if the slot starts after the task deadline, skip it 
             if slot.start >= task.deadline:
                 updated_slots.append(slot)
@@ -158,19 +162,19 @@ def build_schedule(tasks: List[Task], slots: List[TimeSlot]) -> SchedulingResult
                         updated_slots.append(remaining_usable_slot)
                 else:
                     updated_slots.append(slot)
-                    
-            remaining_slots = merge_slots(updated_slots)
-            
-            if minutes_left > 0:
-                # new task from remaining mins and add to unscheduled tasks
-                temp_task = {
+
+        remaining_slots = merge_slots(updated_slots)
+
+        if minutes_left > 0:
+            unscheduled_tasks.append(
+                {
                     "task_name": task.name,
                     "deadline": task.deadline.isoformat(),
                     "requested_duration_minutes": task.duration_minutes,
                     "unscheduled_minutes": minutes_left,
-                    "priority": task.priority
+                    "priority": task.priority,
                 }
-                unscheduled_tasks.append(temp_task)
+            )
     scheduled_blocks.sort(key = lambda block: block.start)
     return SchedulingResult(scheduled_blocks=scheduled_blocks, unscheduled_tasks = unscheduled_tasks, remaining_slots = remaining_slots)
 
